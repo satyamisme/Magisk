@@ -1,0 +1,54 @@
+name: Build & Release Magisk
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers when pushing a Git tag like v1.0.0
+
+jobs:
+  build:
+    name: Build App & Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Build with Gradle
+        run: ./gradlew assembleRelease
+
+      - name: Find APK
+        id: get_apk_name
+        run: |
+          APK_NAME=$(ls app/release/*.apk | head -n 1 | xargs basename)
+          echo "APK_NAME=$APK_NAME" >> $GITHUB_ENV
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: magisk-release
+          path: |
+            app/release/${{ env.APK_NAME }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ github.ref }}
+          name: Magisk Release
+          body: Auto-generated release
+          draft: false
+          prerelease: false
+          files: |
+            app/release/${{ env.APK_NAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
